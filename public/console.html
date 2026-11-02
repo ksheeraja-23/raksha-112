@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Raksha Line — dispatcher console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0d1113; --panel:#151b1e; --panel2:#1b2327; --panel3:#212b30;
+    --line:rgba(255,255,255,.09); --line2:rgba(255,255,255,.18);
+    --text:#e9eff1; --dim:#8fa0a6; --faint:#63757b;
+    --amber:#f0a02a; --green:#7cc47a; --red:#f2564f; --blue:#6cb8d8;
+    --font:'Bricolage Grotesque',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5}
+  header{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;
+    padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+  h1{font-size:17px;font-weight:800;letter-spacing:-.02em}
+  h1 span{color:var(--amber)}
+  .status{font-family:var(--mono);font-size:10.5px;color:var(--faint);display:flex;gap:14px;align-items:center}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);display:inline-block;margin-right:6px}
+  .dot.off{background:var(--red)}
+  input,button{font-family:inherit;font-size:13px}
+  .tok{background:var(--panel3);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:6px 9px;width:215px}
+
+  main{display:grid;grid-template-columns:330px minmax(0,1fr);gap:14px;padding:14px;align-items:start}
+  @media(max-width:980px){main{grid-template-columns:1fr}}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .card + .card{margin-top:12px}
+  .chead{display:flex;justify-content:space-between;align-items:center;padding:10px 13px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .chead h2{font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);font-weight:500}
+  .chead .n{font-family:var(--mono);font-size:10px;color:var(--faint)}
+
+  .calls{max-height:340px;overflow-y:auto}
+  .callrow{display:block;width:100%;text-align:left;background:transparent;border:0;border-bottom:1px solid var(--line);
+    padding:10px 13px;cursor:pointer;color:var(--text)}
+  .callrow:hover{background:var(--panel2)}
+  .callrow[aria-current="true"]{background:var(--panel3);border-left:2px solid var(--amber)}
+  .callrow .l1{display:flex;justify-content:space-between;gap:8px;align-items:center}
+  .callrow b{font-size:12.5px;font-weight:600}
+  .callrow .id{font-family:var(--mono);font-size:9.5px;color:var(--faint)}
+  .callrow .l2{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:3px}
+  .chip{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 7px;border-radius:99px;border:1px solid var(--line2);color:var(--dim);white-space:nowrap}
+  .chip.explicit{border-color:rgba(242,86,79,.5);color:#ff8f89;background:rgba(242,86,79,.12)}
+  .chip.coded{border-color:rgba(240,160,42,.5);color:var(--amber);background:rgba(240,160,42,.12)}
+  .chip.live{border-color:rgba(124,196,122,.5);color:var(--green);background:rgba(124,196,122,.12)}
+  .chip.human{border-color:rgba(108,184,216,.5);color:var(--blue);background:rgba(108,184,216,.12)}
+
+  .detail{padding:13px}
+  .turns{max-height:300px;overflow-y:auto;display:grid;gap:7px}
+  .turn{display:grid;grid-template-columns:56px 1fr;gap:9px;font-size:13px}
+  .turn .spk{font-family:var(--mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding-top:3px}
+  .turn.agent .spk{color:var(--amber)}
+  .turn.caller .spk{color:var(--green)}
+  .turn.system{grid-template-columns:1fr}
+  .turn.system .txt{font-family:var(--mono);font-size:10.5px;color:var(--blue)}
+
+  .read{background:var(--panel3);border:1px solid var(--line);border-left:2px solid var(--amber);border-radius:0 9px 9px 0;padding:10px 12px;margin:11px 0}
+  .read .lab{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+  .read p{font-size:13px}
+
+  .ents{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:11px}
+  @media(max-width:560px){.ents{grid-template-columns:1fr}}
+  .ent{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+  .ent .lab{font-family:var(--mono);font-size:8.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint)}
+  .ent .val{font-size:13px;font-weight:600;margin-top:1px}
+  .ent .val.pending{color:var(--faint);font-weight:400;font-style:italic}
+  .ent .src{font-family:var(--mono);font-size:8.5px;color:var(--faint);margin-top:1px}
+
+  .acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+  .btn{border:0;border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer}
+  .btn.take{background:var(--blue);color:#08181d}
+  .btn.end{background:var(--red);color:#fff}
+  .btn.ghost{background:transparent;border:1px solid var(--line2);color:var(--dim)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+
+  .sim{padding:13px;display:grid;gap:8px}
+  .sim .row{display:flex;gap:7px}
+  .sim input{flex:1;min-width:0;background:var(--panel3);border:1px solid var(--line);color:var(--text);border-radius:8px;padding:9px 11px}
+  .sim input:focus{outline:none;border-color:var(--amber)}
+  .sim .btn{background:var(--amber);color:#221703}
+  .empty{font-family:var(--mono);font-size:10.5px;color:var(--faint);padding:10px 0}
+  .note{font-family:var(--mono);font-size:9.5px;color:var(--faint);line-height:1.6}
+</style>
+</head>
+<body>
+<header>
+  <h1>Raksha Line <span>· dispatcher console</span></h1>
+  <div class="status">
+    <span><i class="dot" id="conn"></i><span id="connText">connecting…</span></span>
+    <span id="count">0 calls</span>
+    <input class="tok" id="token" placeholder="dispatcher token" aria-label="Dispatcher token">
+  </div>
+</header>
+
+<main>
+  <div>
+    <section class="card">
+      <div class="chead"><h2>Live calls</h2><span class="n" id="liveN">—</span></div>
+      <div class="calls" id="calls"><div class="empty">Waiting for calls…</div></div>
+    </section>
+
+    <section class="card">
+      <div class="chead"><h2>Simulate a caller</h2><span class="n">talks to the real API</span></div>
+      <div class="sim">
+        <div class="row">
+          <input id="from" value="+91 98•••• 4120" aria-label="Caller number">
+          <button class="btn" id="startBtn">Start call</button>
+        </div>
+        <div class="row">
+          <input id="sayIn" placeholder="What the caller says…" aria-label="Caller speech" disabled>
+          <button class="btn" id="sayBtn" disabled>Send</button>
+        </div>
+        <p class="note">Type what the caller says and press Send. The server decides the next line — this panel is just a telephone handset.</p>
+      </div>
+    </section>
+  </div>
+
+  <section class="card">
+    <div class="chead"><h2 id="detailTitle">No call selected</h2><span class="n" id="detailMeta">—</span></div>
+    <div class="detail" id="detail">
+      <div class="empty">Select a call on the left, or start one.</div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  'use strict';
+  var $ = function(id){ return document.getElementById(id); };
+  var token = localStorage.getItem('rk_token') || '';
+  $('token').value = token;
+  $('token').addEventListener('change', function(){
+    token = this.value.trim(); localStorage.setItem('rk_token', token); connect(); loadCalls();
+  });
+
+  var calls = {};
+  var selected = null;
+  var es = null;
+
+  function api(path, opts){
+    opts = opts || {};
+    opts.headers = Object.assign({'content-type':'application/json'}, opts.headers || {});
+    if(token) opts.headers['x-dispatcher-token'] = token;
+    if(opts.body && typeof opts.body !== 'string') opts.body = JSON.stringify(opts.body);
+    return fetch(path, opts).then(function(r){
+      return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || r.status); return j; });
+    });
+  }
+
+  function esc(s){
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+
+  function connect(){
+    if(es) es.close();
+    es = new EventSource('/events');
+    es.onopen = function(){ $('conn').className='dot'; $('connText').textContent='live'; };
+    es.onerror = function(){ $('conn').className='dot off'; $('connText').textContent='reconnecting'; };
+    es.onmessage = function(e){
+      var msg = JSON.parse(e.data);
+      if(msg.type === 'hello'){
+        msg.calls.forEach(function(c){ calls[c.id] = calls[c.id] || c; });
+        renderList();
+        if(!selected && msg.calls.length) select(msg.calls[0].id);
+      }
+      if(msg.type === 'call'){
+        var c = msg.call;
+        calls[c.id] = Object.assign(calls[c.id] || {}, {
+          id:c.id, from:c.from, state:c.state, startedAt:c.startedAt,
+          scenario:c.read ? c.read.scenario : null, score:c.read ? c.read.score : null,
+          needsHuman:c.needsHuman, handedOver:c.handedOver, location:c.entities.location, name:c.entities.name
+        });
+        renderList();
+        if(selected === c.id) renderDetail(c);
+      }
+    };
+  }
+
+  function loadCalls(){
+    return api('/api/calls').then(function(j){
+      j.calls.forEach(function(c){ calls[c.id] = c; });
+      renderList();
+    }).catch(function(){});
+  }
+
+  function chipFor(c){
+    if(c.handedOver) return '<span class="chip human">human</span>';
+    if(c.needsHuman) return '<span class="chip coded">needs human</span>';
+    if(c.state === 'ended') return '<span class="chip">ended</span>';
+    if(c.scenario === 'explicit') return '<span class="chip explicit">explicit</span>';
+    if(c.scenario === 'coded') return '<span class="chip coded">coded</span>';
+    return '<span class="chip live">live</span>';
+  }
+
+  function renderList(){
+    var ids = Object.keys(calls).sort(function(a,b){
+      return String(calls[b].startedAt||'').localeCompare(String(calls[a].startedAt||''));
+    });
+    $('count').textContent = ids.length + (ids.length === 1 ? ' call' : ' calls');
+    $('liveN').textContent = ids.filter(function(i){ return calls[i].state !== 'ended'; }).length + ' open';
+    if(!ids.length){ $('calls').innerHTML = '<div class="empty">Waiting for calls…</div>'; return; }
+    $('calls').innerHTML = ids.map(function(id){
+      var c = calls[id];
+      var sub = [c.location, c.name, (c.score!=null ? 'score '+c.score : null)].filter(Boolean).join(' · ');
+      return '<button class="callrow" data-id="'+esc(id)+'" aria-current="'+(selected===id)+'">' +
+        '<div class="l1"><b>'+esc(c.from)+'</b>'+chipFor(c)+'</div>' +
+        '<div class="l2">'+esc(id)+'</div>' +
+        (sub ? '<div class="l2">'+esc(sub)+'</div>' : '') +
+        '</button>';
+    }).join('');
+    Array.prototype.forEach.call(document.querySelectorAll('.callrow'), function(b){
+      b.addEventListener('click', function(){ select(b.dataset.id); });
+    });
+  }
+
+  function select(id){
+    selected = id;
+    renderList();
+    api('/api/calls/' + encodeURIComponent(id)).then(function(j){ renderDetail(j.call); });
+  }
+
+  function renderDetail(call){
+    $('detailTitle').textContent = call.from + ' · ' + call.id;
+    $('detailMeta').textContent = call.state + (call.handedOver ? ' · with ' + call.handedOver.by : '');
+
+    var turns = call.turns.map(function(t){
+      return '<div class="turn '+esc(t.speaker)+'"><div class="spk">'+esc(t.speaker)+'</div><div class="txt">'+esc(t.text)+'</div></div>';
+    }).join('') || '<div class="empty">No turns yet.</div>';
+
+    var read = call.read
+      ? '<div class="read"><div class="lab">decoded · ' + esc(call.read.scenario) + ' · ' + call.read.score + '</div><p>' + esc(call.read.meaning) + '</p></div>'
+      : '<div class="read"><div class="lab">decoded</div><p class="empty">Nothing heard yet.</p></div>';
+
+    var e = call.entities || {};
+    var ents = '<div class="ents">' +
+      ent('Location', e.location, e.locationSrc) +
+      ent('Name', e.name, e.nameSrc) +
+      ent('Can speak freely', e.canSpeak === true ? 'Yes' : (e.canSpeak === false ? 'No — one-word mode' : null), 'yes / no / unknown') +
+      ent('Actions', call.actions && call.actions.length ? call.actions.length + ' raised' : null, (call.actions||[]).join('; ')) +
+      '</div>';
+
+    var btns = '<div class="acts">' +
+      '<button class="btn take" id="takeBtn"' + (call.handedOver ? ' disabled' : '') + '>Take over the call</button>' +
+      '<button class="btn ghost" id="endBtn"' + (call.state === 'ended' ? ' disabled' : '') + '>End call</button>' +
+      '<button class="btn ghost" id="purgeBtn">Purge transcript</button>' +
+      '</div>';
+
+    $('detail').innerHTML = '<div class="turns">' + turns + '</div>' + read + ents + btns;
+
+    var take = $('takeBtn'); if(take) take.onclick = function(){ takeOver(call.id); };
+    var end = $('endBtn'); if(end) end.onclick = function(){ endCall(call.id); };
+    var purge = $('purgeBtn'); if(purge) purge.onclick = function(){ purgeCall(call.id); };
+  }
+
+  function ent(label, val, src){
+    var v = val ? '<div class="val">' + esc(val) + '</div>' : '<div class="val pending">—</div>';
+    var s = src ? '<div class="src">' + esc(src) + '</div>' : '';
+    return '<div class="ent"><div class="lab">' + esc(label) + '</div>' + v + s + '</div>';
+  }
+
+  function takeOver(id){
+    api('/api/calls/' + encodeURIComponent(id) + '/handover', {method:'POST', body:{by:'dispatcher (console)'}})
+      .then(function(j){ renderDetail(j.call); })
+      .catch(function(e){ alert('Could not take over: ' + e.message); });
+  }
+
+  function endCall(id){
+    api('/api/calls/' + encodeURIComponent(id) + '/end', {method:'POST', body:{}})
+      .then(function(j){ renderDetail(j.call); })
+      .catch(function(e){ alert('Could not end: ' + e.message); });
+  }
+
+  function purgeCall(id){
+    if(!confirm('Erase this transcript now? This cannot be undone.')) return;
+    api('/api/calls/' + encodeURIComponent(id) + '/purge', {method:'POST', body:{}})
+      .then(function(){ select(id); })
+      .catch(function(e){ alert('Could not purge: ' + e.message); });
+  }
+
+  /* --- simulator --- */
+  var activeId = null;
+
+  $('startBtn').addEventListener('click', function(){
+    api('/api/calls', {method:'POST', body:{from: $('from').value || '+91-unknown', lang:'en'}})
+      .then(function(j){
+        activeId = j.id;
+        $('sayIn').disabled = false; $('sayBtn').disabled = false; $('sayIn').focus();
+        calls[j.id] = {id:j.id, from:$('from').value, state:j.call.state, startedAt:j.call.startedAt};
+        renderList(); select(j.id);
+      })
+      .catch(function(e){ alert('Could not start: ' + e.message); });
+  });
+
+  function sendSay(){
+    var text = $('sayIn').value.trim();
+    if(!text || !activeId) return;
+    $('sayIn').value = '';
+    api('/api/calls/' + encodeURIComponent(activeId) + '/turn', {method:'POST', body:{text:text}})
+      .then(function(j){ renderDetail(j.call); })
+      .catch(function(e){ alert('Could not send: ' + e.message); });
+  }
+  $('sayBtn').addEventListener('click', sendSay);
+  $('sayIn').addEventListener('keydown', function(e){ if(e.key === 'Enter') sendSay(); });
+
+  // Deep link: /?call=<id> opens straight onto a call. nosse=1 is for
+  // screenshots and demos, where a permanently open event stream stalls
+  // the page from ever going idle.
+  var deep = new URLSearchParams(location.search).get('call');
+  if(deep) selected = deep;
+
+  if(!location.search.includes('nosse')) connect();
+  loadCalls().then(function(){ if(selected) select(selected); });
+  setInterval(loadCalls, 15000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "name": "raksha-line",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Inbound emergency call service for India: explicit and coded distress, location and name capture, human handover.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test test/"
+  },
+  "engines": { "node": ">=18" },
+  "license": "UNLICENSED",
+  "dependencies": {}
+}
